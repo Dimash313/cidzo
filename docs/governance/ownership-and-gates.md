@@ -9,7 +9,7 @@ Integrated operational boundaries (Issue #1 / PR #2). Each concrete Issue pins b
 | Design | packages/design, packages/ui, apps/site, templates/** frontend architecture, docs/frontend, docs/handoffs/frontend.md when assigned | no root workspace/lockfile edits |
 | Backend | docs/backend, packages/modules when assigned, docs/handoffs/backend.md | no auth/DB/provider before approved need, no shared config |
 | Platform | root tooling/config/lockfile, workflows, tools/forge, QUALITY.md, SECURITY.md, docs/handoffs/platform.md | no security settings changes or paid runners |
-| Showcase | showcases/<assigned-project>, docs/showcases/<assigned-project>, docs/handoffs/showcase.md | no shared libraries, root config or official site |
+| Showcase (manual only) | showcases/<assigned-project>, docs/showcases/<assigned-project>, docs/handoffs/showcase.md | founder command «Продолжаем дальше» only; no shared libraries, root config or official site |
 | Codex Manager | manual coordination only, no standing write scope | founder-transmitted CTO assignment only; no credit spending without authorization |
 
 QUALITY and SECURITY: Platform is sole writer; CTO reviews contract. Root package manifests/lockfile: Platform sole writer, other centers request dependency changes through Issue. New workspace manifests may require serialized Platform coordination; never simultaneous lockfile writes. Future path overlaps require CTO assignment.
