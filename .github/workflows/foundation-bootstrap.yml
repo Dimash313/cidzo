@@ -1,0 +1,41 @@
+name: Foundation lockfile bootstrap
+on:
+  push:
+    branches: [platform/issue-4-foundation]
+permissions:
+  contents: read
+concurrency:
+  group: foundation-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.23.5'
+          package-manager-cache: false
+      - name: Generate lockfile (temporary bootstrap, not the required CI gate)
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(node --version)" = "v22.23.5"
+          npm install --global --ignore-scripts pnpm@11.29.0
+          test "$(pnpm --version)" = "11.29.0"
+          pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile
+          test -s pnpm-lock.yaml
+          sha256sum pnpm-lock.yaml
+          printf 'LOCKFILE_BASE64='
+          base64 -w0 pnpm-lock.yaml
+          printf '\n'
+      - name: Test generated dependency resolution
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm run lint
+          pnpm run typecheck
+          pnpm run build
+          pnpm run test

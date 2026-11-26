@@ -1,0 +1,19 @@
+{
+  "name": "cidzo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.29.0",
+  "engines": {
+    "node": "22.23.5",
+    "pnpm": "11.29.0"
+  },
+  "scripts": {
+    "lint": "node tooling/lint.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm run build && node --test tooling/fixture/test/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}
