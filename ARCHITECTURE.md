@@ -12,12 +12,12 @@ Status: governance integrated via Issue #1 / PR #2; runtime not yet implemented 
 No DB, server runtime, auth or containers for STATIC without ADR. No microservices, CQRS, event sourcing or heavy messaging without demonstrated need. FastAPI/Python only via justified ADR.
 
 ## Proposed workspace and dependency direction
-- apps/site: official CIDZO Astro site; apps/showcase-* only when approved, explicitly demo.
+- apps/site: official CIDZO Astro site; showcases/<project> (outside apps/) for explicitly labeled demos, only when authorized; CHAT 07 owns demo-specific paths, CHAT 03 owns official apps/site and common frontend.
 - packages/design: tokens and style contracts (no app imports).
 - packages/ui: reusable accessible primitives; no business rules, no app dependencies; framework-specific adapters only when needed.
 - packages/modules: later domain capabilities, separated by feature; domain code independent of transport/persistence, adapters depend on contracts.
 - templates/static, templates/dynamic, templates/application: independent project scaffolds added when validated by a real reference site.
-- tools/forge: later generator; consumes versioned templates, never a required client runtime.
+- tools/forge: later generator owned by CHAT 05; consumes versioned templates, never a required client runtime.
 - tooling/config and tooling scripts only when shared use warrants them.
 - docs: decisions, contracts, governance and handoffs.
 
@@ -37,3 +37,5 @@ CI: frozen install, strict types, lint, unit tests, build, Playwright/axe where 
 Subsystems activated by evidence: Foundation, Forge, Design, Primitives, Layout, Motion, Content, Localization, Commerce, Identity, Search, Connect, Shield, Performance, Verify, Deploy, Observe, Preview. These are internal capabilities, not products; no empty modules. Start with tooling and actual static site, then extract proven shared parts. Track debt by Issue with owner, cost, trigger and review date; avoid speculative abstractions.
 
 See [ADR-0001](docs/decisions/0001-minimal-profiles.md), [ADR-0002](docs/decisions/0002-client-independence.md), [ownership and gates](docs/governance/ownership-and-gates.md).
+
+Engineering builds reusable platform capabilities; Production applies them to independent showcase projects. No showcase-local replacement shared library, unauthorized workspace membership or shared configuration edits. Demo concepts can precede platform implementation; runtime use requires accepted contracts, dependencies and per-project authorization. See [dispatcher](docs/governance/task-dispatcher.md).
