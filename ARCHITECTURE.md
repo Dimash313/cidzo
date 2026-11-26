@@ -1,6 +1,6 @@
 # CIDZO Master Architecture — proposed foundation
 
-Status: proposed in Issue #1; not implemented. Scope: internal reusable web engineering, not a hosted multi-tenant platform. Prefer minimal sufficient architecture, individual design and shared engineering.
+Status: governance integrated via Issue #1 / PR #2; runtime not yet implemented at post-merge baseline. Scope: internal reusable web engineering, not a hosted multi-tenant platform. Prefer minimal sufficient architecture, individual design and shared engineering.
 
 ## Profiles and contracts
 | Profile | Runtime | Required contract | Explicitly optional |

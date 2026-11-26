@@ -1,6 +1,6 @@
 # Ownership and integration gates
 
-Proposed operational boundaries (Issue #1). Each concrete Issue pins base SHA, paths and dependencies; no writes before authorized prerequisites and conflict recheck.
+Integrated operational boundaries (Issue #1 / PR #2). Each concrete Issue pins base SHA, paths and dependencies; no writes before authorized prerequisites and conflict recheck.
 
 | Center | Exclusive initial area | Restrictions |
 | --- | --- | --- |
