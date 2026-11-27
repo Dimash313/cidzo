@@ -1,6 +1,6 @@
 # ADR-0002 — Independent client projects
 
-Status: Proposed (Issue #1).
+Status: Accepted and integrated (Issue #1 / PR #2); implementation evidence still pending.
 Context: shared engineering must not couple client releases or expose client data.
 Alternatives: central multi-tenant runtime; shared git submodule; standalone exported template with pinned dependencies and explicit updates.
 Decision: separate client repositories, reproducible snapshot, no mandatory central runtime; updates opt-in and audited.

@@ -1,0 +1,5 @@
+# CHAT 03 — Frontend handoff
+
+Issue #12 / CIDZO-FRONTEND-002: documentation-only specification at base 3ca0c3e59365c5e7470eac9e6b9406f2b958bf42. Deliverables: [design](../frontend/official-site/design.md) and [acceptance](../frontend/official-site/acceptance.md). Proposed studio visual direction, responsive/interaction rules, minimal component candidates and future verification matrix. No runtime, assets, dependencies, browser tests or publication. Exact HEAD and checks recorded in the associated Draft PR and Issue, not self-asserted here.
+
+#6 remains blocked by #4 and #5 integration, accepted contract and CTO base/manifest ownership. Main QUALITY.md and SECURITY.md absent at inspected base; proposed policies in #10. Backend clarification requests remain in #9. CHAT 07 owns individual showcase concepts and implementation; shared requests through CTO. No overlapping writes. Next: independent documentation audit, CTO review, founder integration; resolve findings before new work. No spending or Astra.

@@ -10,4 +10,4 @@ Internal web engineering platform; CIDZO is independent of IhsanSoft. Current sc
 - [Roadmap](ROADMAP.md)
 - [Verified state](STATE.md)
 
-Initial governance proposal; implementation and CI are not yet available. No installation instructions until an actual runnable foundation exists.
+Governance integrated via PR #2; implementation and CI were not yet available at the post-merge baseline. See STATE.md and live GitHub. No installation instructions until an actual runnable foundation exists.
