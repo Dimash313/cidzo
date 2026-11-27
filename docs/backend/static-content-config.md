@@ -1,10 +1,10 @@
 # STATIC — minimal content and configuration contract
 
-Status: proposed for Issue #5; independent audit and CTO integration required. Consumer: official CIDZO Astro reference (#6). This document defines behavior, not installed types, a validator, or a running site. See [architecture](../../ARCHITECTURE.md), [profile decision](../decisions/0001-minimal-profiles.md) and [server boundaries](server-boundaries.md).
+Proposed contract for Issue #5 and the official CIDZO Astro reference (#6), pending independent audit and CTO review. See [architecture](../../ARCHITECTURE.md), [profile decision](../decisions/0001-minimal-profiles.md) and [server boundaries](server-boundaries.md).
 
 ## Input model
 
-TypeScript notation is conceptual. Required fields lack a question mark. Refinements below are part of the contract; TypeScript alone is insufficient to validate external inputs. A consumer must validate at build time before rendering and fail rather than silently repair invalid required data.
+TypeScript notation is conceptual. Required fields lack a question mark. Validate the following refinements at build time before rendering. The deployment mode, content approvals and host route inventory come from trusted project owners outside this public input.
 
 ```ts
 type LocaleTag = string;
@@ -46,45 +46,121 @@ type StaticInput = {
 };
 ```
 
-- Accept only declared fields and correct primitive/array/object types. Reject unknown properties, null in place of omitted optional values, empty or whitespace-only required text, control characters, invalid identifiers, duplicate locale tags (including equivalent canonical tags), duplicate content locale records and duplicate service IDs within a locale. No implicit coercion. Trim-validation is not silent mutation: leading/trailing whitespace in identifiers is invalid. Text is escaped on output; no raw HTML, executable markup, inline event handlers or untrusted Markdown rendering. No arbitrary URL fields.
-- Bound input size before parsing (proposed initial fixture ceilings: 256 KiB UTF-8 JSON, 16 locales, 32 services and 8 contacts per locale, 4096 Unicode code points per text field, 2048 characters per URL, 64 ASCII characters per service ID). These are engineering limits, not content requirements; change through contract review. Service IDs use lowercase ASCII alphanumeric segments separated by single hyphens, without leading/trailing hyphens. Stable ID denotes the same service across translations; no merging by translated title.
-- Required arrays may be empty for a reference preview, but a public launch requires founder-reviewed, truthful service and contact content (at least one service and one valid contact), plus any applicable legal notices. Missing priceLabel or legalNotice means omit the corresponding section; never invent a price, a policy or an endorsement. If a legal notice is required, absence blocks publication. priceLabel is display-only approved text, not executable pricing, a numeric calculation or a checkout contract.
-- Contacts must be explicitly approved public business contacts; no real private customer data. website href must parse as an absolute HTTPS URL with nonempty host, no credentials and no embedded control/whitespace; reject scheme-relative, javascript:, data:, and HTTP. Validate the exact approved destination rather than trusting URL text or suffix checks. email href is a single approved mailto address without query, fragment, header injection or percent-encoded controls; reject malformed/multiple recipients. No external form, tracking pixel, automatic message or click-side effects beyond ordinary user navigation. No user-supplied URLs rendered without validation.
-- canonicalOrigin, if supplied, is an approved absolute HTTPS origin with host, no credentials, path except "/", query or fragment; normalize only the trailing slash for URL construction. Reject invalid supplied values even in preview. Required for production publication; absent in local preview is allowed. Do not generate canonical/hreflang/sitemap URLs with invented origins. A preview is non-indexable and must not be represented as a production release; deployment controls belong to #4/#6.
+## Validation and release failure
 
-## Locale and routing
+Read at most 256 KiB (262144 bytes) of UTF-8 JSON. Reject invalid encoding, malformed JSON and duplicate object keys. Accept only the declared fields and types. Reject missing required fields, unknown properties, explicit nulls, implicit coercions and unpaired surrogates. Every supplied plain-text field, including optional fields, must contain a non-whitespace character and exclude control characters (U+0000–001F and U+007F–009F). Render it as escaped text in its output context. Content cannot supply markup, scripts or arbitrary URL fields to the renderer.
 
-Use an explicit registry of enabled, unique canonical BCP 47 locale tags; validate syntax and canonicalize for comparison, require canonical input spelling. Accept only tags supported by the selected build toolchain and reviewed translations. A tag's explicit direction must agree with the reviewed locale/script; render html lang and dir from the resolved entry, not from inferred browser language. Frontend #6 proposed ru/kk/en and later ar/RTL: these are candidates, not approved translations or release requirements. No locale is silently enabled. Default locale must exist in the registry and have a complete validated content record. Every enabled locale must have exactly one complete record; content outside registry is invalid.
+Limits are inclusive. Allow 1–16 locales, up to 32 services and 8 contacts per locale, 4096 Unicode code points per plain-text field and 2048 ASCII characters per URL input. A service ID is 1–64 ASCII characters matching `[a-z0-9]+(?:-[a-z0-9]+)*` in full. For example, `web-design` is valid and `web--design` fails. Compare identifiers exactly, without trimming. Apply the review and mode rules below after structural validation.
 
-Use / for the default locale and /<canonical-tag>/ for each other enabled locale (URI path segment from validated tag only); default-locale-prefixed routes are not additional indexable pages. All core navigation works without JavaScript. Locale switcher links only to available routes. For internal content lookup, an absent/unsupported requested locale resolves to the default record as a whole; do not fill missing strings from other locales. This is not permission to serve unknown HTTP routes as successful localized pages: unknown public paths return 404 under the host policy. A missing or incomplete enabled translation fails the build; it is not published or silently substituted. Explicit user choice follows the link, not forced geolocation/browser-language redirect. No arbitrary redirect target from input. If canonical origin is approved, generate canonical per page and alternates only for complete published equivalents (including default); avoid duplicate routes and false hreflang. Locale-aware formatting and RTL layout tests belong to #6.
+| Input or condition | Required outcome |
+| --- | --- |
+| Valid input exactly at a stated ceiling | Accept that limit, then apply all other checks. |
+| 262145 input bytes, 4097 code points in a summary, 33 services or 9 contacts in one locale | Reject the whole build even if another locale is valid. |
+| Missing heading, whitespace-only label, duplicate key, `priceLabel: null` or unknown config key (for example, `privateToken`) | Reject in either mode. An omitted optional field passes structural validation. |
+| Failure during validation, rendering or release checks | Discard the candidate. Report a field path (or stage for a document-level error) and category, e.g. `content[1].contacts / required-for-publication`. Keep raw input, addresses and private values out of diagnostics. The last verified release stays in place. |
 
-## Public/private boundary and publication
+## Locale records and publication
 
-StaticInput is public build-time content. Everything sent to browser bundles, HTML, source maps and public build artifacts must be treated as public. Use an explicit allowlist of the fields above, never spread process.env or arbitrary config into public output. No private values are required by this reference; CI/deployment credentials, if later required and approved, stay outside public inputs and use Platform's secret mechanism, never client prefixes or logs. Do not introduce a secret store, database, runtime, auth, cookies, external form, analytics, payment or provider merely for the reference. No live data collection in this contract. If a user opts to follow an external contact link, the destination has its own privacy behavior; verify destination and disclosure before publication. All assets and text need provenance, rights and founder content-policy review; no music, images of living beings, false reviews, cases or metrics.
+The registry lists every enabled locale exactly once. Tags use the canonical BCP 47 spelling returned by the build toolchain's `Intl.getCanonicalLocales` for a single tag. Noncanonical spellings and equivalent duplicate tags fail registration, e.g. `en-us` alongside `en-US`. Require an app locale resource for the canonical tag, including its reviewed direction. A resource for a base language alone cannot enable a regional or script variant. The default must be registered. Require exactly one complete record per tag, including the default, and reject extra records. Render each page's `lang` and `dir` from its own entry. Reject a direction that disagrees with its reviewed language/script, including an RTL resource declared as LTR. An internal request for an absent or unsupported locale selects the entire default record. An incomplete registered record fails the build. Never fill individual strings from another language.
 
-Invalid input: deterministic build failure, concise field path and error category without echoing potentially sensitive values; no partial successful publish. A failed release leaves previous verified artifact untouched. Preview vs production is an explicit trusted deployment choice, not a query parameter or browser value. Production release checks are separate from structural validation; a well-formed example is not proof of verified commercial content.
+For each locale require its own title, description, heading, introduction, service titles/summaries and contact labels. Frontend owns reviewed, locale-specific interface strings (including the preview notice, skip link, section labels and 404 recovery). Keep them in the app's locale resources. Review copy, direction and interface resources for every published locale. Candidate languages in #17 do not enable routes.
 
-## Synthetic preview example
+| Content | Preview | Production |
+| --- | --- | --- |
+| Services | Every locale has the same ordered sequence of unique IDs as the default. All may be empty. | Same rule, with 1–32 reviewed services **in each locale**. The ID identifies the same offering. Reordering, extra IDs and intentional omissions in one translation all fail. Change the reviewed catalog across all locales together. |
+| Contacts | Each locale supplies 0–8 validated, approved contacts. | Each locale supplies 1–8 validated, reviewed public business contacts. Destinations, labels and order may differ by locale. |
+| Price | Omit an absent label for that service only. Use reviewed fixture text for any sample price. | Presence is independent per service and locale. Show only approved localized display text. Absence needs no substitute, calculation or checkout. |
+| Legal notice | Omit the block if absent. Use reviewed fixture text for any sample notice. | The owner records whether a notice is required for each locale. Unknown applicability, missing required notice or any unreviewed supplied notice blocks publication. When optional and absent, omit the block. |
 
-The following is a structural example only, not approved content, a release configuration, or a requirement to enable a language. No real contacts or prices.
+Preview may use reviewed synthetic fixtures for internal evaluation. For production, the founder must approve the actual content, translations, destinations and origin. Publish every registered locale together or reject the release. A build cannot quietly disable a failing locale. In an empty preview omit each empty section, its navigation target and any unavailable contact CTA. Show a localized preview notice on every preview page.
+
+## Two-locale acceptance fixture
+
+Both tags, the reserved test domains and the copy below are synthetic. For the accepted production **contract example only**, assume the reviewer approved these exact values, both interface dictionaries, LTR and omission of both legal notices. This fixture confers no publication approval.
 
 ```json
 {
   "config": {
-    "studioName": "CIDZO",
-    "locales": [{"tag": "en", "direction": "ltr"}],
-    "defaultLocale": "en"
+    "studioName": "Example",
+    "locales": [{"tag": "en", "direction": "ltr"}, {"tag": "fr", "direction": "ltr"}],
+    "defaultLocale": "en",
+    "canonicalOrigin": "https://site.invalid"
   },
-  "content": [{
-    "locale": "en",
-    "title": "CIDZO reference",
-    "description": "Synthetic preview example",
-    "heading": "Preview",
-    "introduction": "Illustrative content only",
-    "services": [],
-    "contacts": []
-  }]
+  "content": [
+    {
+      "locale": "en", "title": "Example", "description": "Sample catalog",
+      "heading": "Services", "introduction": "Preview the sample catalog.",
+      "services": [{"id": "web", "title": "Website", "summary": "Example site."}],
+      "contacts": [{"kind": "website", "label": "Contact", "href": "https://example.invalid/contact"}]
+    },
+    {
+      "locale": "fr", "title": "Exemple", "description": "Catalogue fictif",
+      "heading": "Services", "introduction": "Découvrez le catalogue fictif.",
+      "services": [{"id": "web", "title": "Site web", "summary": "Site fictif."}],
+      "contacts": [{"kind": "email", "label": "Écrire", "href": "mailto:Equipe+demo@example.invalid"}]
+    }
+  ]
 }
 ```
 
-Acceptance examples (future consumer checks, not executed runtime tests): this structure is valid for preview and rejected for production; duplicate locale, unknown key, missing default record, incomplete enabled translation, invalid supplied origin, injected contact scheme, over-limit arrays and unknown locale record must fail validation. A valid default lookup uses its whole record; unknown public route must not become an indexable duplicate. Price and legal omissions do not manufacture content. Add actual validator/build/browser tests under assigned #6 scope and review with Platform #4. No new dependency selected here.
+Apply each row independently to the fixture.
+
+| Change | Expected outcome |
+| --- | --- |
+| As written | Both locales pass the production data gate at its minimum. Internal lookup for an unsupported tag returns the entire English record. The HTTP path for that tag returns 404. |
+| Empty only the French services and contacts | Reject production. The English minima cannot satisfy the French record. Emptying only French contacts also rejects production and passes preview. |
+| Change only the French ID to `design`, or add it only in French | Reject in either mode. Adding a translated `design` after `web` in both passes. Reversing those two in French then fails. |
+| Omit the French record, duplicate it or add a record for a disabled tag | Reject in either mode. |
+| Add a reviewed price label only in French | Show it only for that French service. Declaring a French legal notice required with the notice absent rejects production. Supplying the reviewed French notice satisfies that gate. |
+| Empty all service and contact arrays and omit the origin | Accept preview, show the notice and omit the empty sections and links. Reject production. An invalid supplied origin fails even in preview. |
+
+## HTTP routing at the host
+
+Serve the default page only at `/`. Each other registered page has exactly one path, `/<canonical-tag>/`, matched case-sensitively. Compare the original request pathname before host case folding, slash repair or decoding aliases. Query parameters do not change the page, locale or mode. Generated URLs use the clean pathname. Fragments are client-side. Link the switcher to the exact enabled paths and keep core navigation usable without JavaScript or a language-detection redirect.
+
+Reserve the first path segments `api`, `assets`, `_astro`, `.well-known`, `robots.txt`, `sitemap.xml`, `favicon.ico` and `404.html`, including their descendants, plus any first segment claimed by another emitted file, page or host rule. Compare *every* registry tag (including default) with those names using ASCII case folding. Before rendering, reject a registry or output plan with a collision, including one on a case-insensitive host. Reserved paths belong to their explicitly configured file/handler. An unclaimed reserved path returns 404. #4/#6 must verify the deployed host preserves these status and path rules, including file aliases.
+
+| Request or build input (fixture above) | Outcome |
+| --- | --- |
+| `/`, `/fr/`, `/fr/?preview=1` | 200 for English, French and French respectively. Mode comes from the build. |
+| `/en`, `/en/`, `/fr`, `/FR/` | 404 with a recovery link to `/`. No redirects or duplicate pages for these variants. |
+| `/de/`, `/fr//`, `/%66r/`, `/fr/index.html` | 404. An unknown path never serves the default or a successful fallback page. |
+| Add the syntactically valid tag `api`, or give a host asset directory the name `FR` | Reject the build for collision before emitting either locale. |
+
+## Origin, indexing and discovery
+
+Select preview or production only through trusted build/deployment configuration. A missing or unknown mode fails closed. If supplied, `canonicalOrigin` must equal a reviewed WHATWG HTTPS origin serialization, optionally followed by one slash. Apply the website URL lexical exclusions below. Require a hostname and reject credentials, paths other than root, queries and fragments. Use the serialization without a trailing slash when joining to a route. For example, `https://site.invalid/` maps to `https://site.invalid` when approved. `http://site.invalid`, `https://site.invalid/path` and `https://site.invalid/?` fail in either mode.
+
+| Context | Indexing and emitted metadata |
+| --- | --- |
+| Missing mode, unknown mode or a public input property claiming a mode | Reject the build. A preview host must serve a preview artifact. |
+| Production with an approved origin and complete, approved records | Use localized title/description and one self-canonical per 200 locale page. On each page emit the same reciprocal hreflang set, one absolute URL per published tag including self and default. Sitemap contains exactly those page URLs once each. For the fixture each page links `en` to `https://site.invalid/` and `fr` to `https://site.invalid/fr/`. Open Graph data, if used, must describe approved content on that page. |
+| Production with one enabled locale | Self-canonical, one self hreflang and one sitemap URL. Omit unpublished languages and aliases from every output. Missing origin blocks the whole production release. |
+| Preview, with or without an approved origin | Put `<meta name="robots" content="noindex">` in the initial HTML of every preview page, including the HTML recovery page. Emit zero canonicals, hreflang links, sitemap files/advertisements or public page identity URLs such as `og:url`. Ordinary navigation and localized titles still work. |
+| Unknown path, alias or otherwise unpublished equivalent | Return 404 for an unmatched page. Emit no canonical, hreflang or production page identity for its error response. It has no sitemap entry and no alternate pointing to it from a published page. |
+
+Before exposing a preview, #4/#6 verify its access policy and inspect the served HTML with JavaScript disabled for the actual `noindex` directive. A robots.txt disallow rule alone cannot satisfy the gate. Check preview outputs even when the production origin is supplied. For deployment acceptance, request representative 200 and 404 paths and compare the generated production head tags and sitemap with the same published route set.
+
+## Contact destinations
+
+The owner reviews public business destinations outside `StaticInput`. Compare the pair `(kind, canonical href)` with that exact reviewed set in both modes. Validate the set entries by the same rules as the content. Render the validated canonical href as an ordinary escaped link. A host, prefix or shared business name is insufficient to approve a different destination.
+
+- **Website.** Accept an absolute HTTPS URL parsed without a base by the WHATWG URL parser. Before parsing, reject non-printable or non-ASCII input, any whitespace, backslash and any percent sign. This contract admits only unescaped ASCII contact URLs. Require a nonempty hostname and no userinfo (including an empty userinfo marker). Require the original string to equal the parser's complete serialized `href` byte for byte. This rejects dot-segment removal, case folding of scheme/host, an explicit default port and the insertion of a missing root slash. Preserve path case, trailing slash, non-default port, query order and fragment in the exact comparison. A changed component needs its own approval.
+- **Email.** Require literal lowercase `mailto:` followed by one ASCII mailbox and nothing else. Split at exactly one literal `@`. The local part is 1–64 characters and matches `[A-Za-z0-9_+-]+(?:\.[A-Za-z0-9_+-]+)*` in full. Preserve case and literal plus. The domain is a lowercase ASCII DNS name with at least two dot-separated labels, each 1–63 letters/digits/hyphens with alphanumeric ends. Maximum 253 characters for the domain and 254 for the mailbox. The canonical href is `mailto:` plus those exact parts. Reject whitespace, controls, display names, lists, query/header or fragment delimiters (even empty) and **all** percent escapes before any decoding. Do not decode or form-encode the recipient.
+- **Destination review.** Manually verify the intended website before publication. A redirect target needs separate review. Use the verified final URL as the approved href and recheck if it changes. The build performs no lookup, redirect-following, automatic sending or tracking. An ordinary link requires an explicit user action.
+
+Each row is a separate check. Assume only the two contact pairs in the fixture are approved unless the row explicitly grants another approval.
+
+| Candidate | Expected outcome |
+| --- | --- |
+| The fixture's website and email | Accept both. Preserve the capital E and literal plus in the email local part. |
+| `https://example.invalid/a/../contact` or `https://example.invalid:443/contact` | Reject despite the parser serializing each to the approved URL. |
+| `https://example.invalid/contact/`, `https://example.invalid/contact?src=a` or `https://example.invalid/contact#team` | Reject each as a different destination. A separate exact review of the fragment URL permits that URL alone. |
+| `//example.invalid/contact`, `http://example.invalid/contact`, `https://user@example.invalid/contact` or an unapproved host | Reject. If an approved address begins redirecting, review and approve the final destination before publication. |
+| `mailto:equipe+demo@example.invalid`, `mailto:Equipe+demo@EXAMPLE.invalid` | Reject the first as unapproved and the second as noncanonical. |
+| `mailto:a,b@example.invalid`, `mailto:a%2Cb@example.invalid`, `mailto:a%252Cb@example.invalid` or `mailto:a%0Db@example.invalid` | Reject before comparison. No recipient list, encoded separator, nested escape or encoded control is valid. |
+| An otherwise approved mailbox with `?`, `?subject=Hello` or `#` appended | Reject even an empty query or fragment. A separately reviewed mailbox with a 64-character allowed local part can pass. At 65 characters it fails. |
+
+## Public and private data
+
+Treat HTML, browser bundles, source maps and all public build artifacts as public. Allowlist only the declared fields. Never spread environment variables or arbitrary config into output. Deployment credentials belong to Platform's private mechanism outside this input. The STATIC reference requires no runtime server, database, identity, cookies, analytics, payment or external form. Verify provenance, rights and founder approval for published text and assets. No real private data, music, images of living beings, fabricated reviews, cases or metrics. A contact destination has its own privacy behavior and requires appropriate disclosure.
