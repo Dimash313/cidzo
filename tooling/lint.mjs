@@ -26,7 +26,7 @@ for (const path of files.sort()) {
   if (text.split("\n").some((line) => /[ \t]+$/.test(line))) {
     errors.push(path + ": trailing whitespace");
   }
-  if (path.endsWith(".ts") && /@ts-(?:ignore|nocheck)\b/.test(text)) {
+  if (path.endsWith(".ts") && /@ts-(?:ignore|nocheck|expect-error)\b/.test(text)) {
     errors.push(path + ": TypeScript suppression is not allowed");
   }
 }

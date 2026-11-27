@@ -1,4 +1,6 @@
 packages:
   - tooling/fixture
-  - apps/*
-  - packages/*
+
+engineStrict: true
+pmOnFail: error
+verifyDepsBeforeRun: error

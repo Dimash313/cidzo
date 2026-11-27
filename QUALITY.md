@@ -1,24 +1,45 @@
-# Foundation quality gates
+# Foundation quality contract
 
-Status: proposed for Issue #4. Do not merge until the generated lockfile is committed, the temporary bootstrap workflow is removed, and the permanent clean frozen-install workflow has passed on the reviewed HEAD.
+Foundation covers the private pnpm workspace and the compiled slug fixture. The acceptance unit is a full Git commit SHA.
 
-## Initial tooling fixture
+## Reproduce a candidate
 
-- TYPES: `pnpm run typecheck` — strict compiler, zero diagnostics.
-- STYLE: `pnpm run lint` — deterministic formatting and TypeScript suppression checks; this is a limited baseline, not a full semantic linter.
-- BUILD: `pnpm run build` — emits fixture JavaScript with no compiler errors.
-- FUNCTIONALITY: `pnpm run test` — positive and negative Node test cases, zero failures.
-- DEPENDENCIES: exact tool versions; committed pnpm-generated lockfile; frozen clean install with lifecycle scripts disabled; reviewed dependency changes.
-- SECURITY: see SECURITY.md; independent review of workflow permissions, pins and dependency provenance.
-- ARCHITECTURE: fixture only under tooling; no application runtime or speculative packages.
-- DOCUMENTATION: review paths, commands, constraints and explicit evidence before integration.
+Start with a clean checkout, an empty package store and no generated files. Use Node.js 22.23.5 and pnpm 11.29.0. The CI workflow shows the official Linux x64 archives and pinned checksums. The root manifest pins TypeScript 5.9.3 as a development dependency. These versions run the existing strict compiler and Node test runner without additional runtime or testing packages.
 
-ACCESSIBILITY, browser COMPATIBILITY and PERFORMANCE are not applicable to the CLI/compiler fixture. They become mandatory for the first actual web reference. Assess WCAG 2.2 AA with automated and manual tests; do not infer conformance from axe alone. Evaluate applicable OWASP ASVS controls against each real application's threat model. Public site targets: LCP <= 2.5 s, INP <= 200 ms, CLS <= 0.1 at p75 in field data; separate lab budgets and results, no field claims before real measurements.
+```sh
+node --version
+pnpm --version
+sha256sum pnpm-lock.yaml
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm run lint
+pnpm run typecheck
+pnpm run build
+pnpm run test
+pnpm audit
+sha256sum pnpm-lock.yaml
+git diff --exit-code HEAD --
+git diff --check
+git status --porcelain
+```
 
-A successful bootstrap is not proof of a reproducible clean checkout until the lockfile is committed and verified on the final SHA. Audit and CTO integration review are required. No unsupported 10/10 claims.
+| Gate | Acceptance |
+| --- | --- |
+| Workspace | The root and `@cidzo/foundation-fixture` are private, with unique names and no workspace dependency cycle. Only the existing fixture is enrolled. `pnpm list -r --depth Infinity` shows TypeScript at the root and no fixture dependencies. |
+| Install | Actual versions match both pins. A tracked, nonempty lockfile installs with lifecycle scripts disabled. The package manager fails on incompatible engines or a mismatched manager. Running a script with stale dependencies requires an explicit install. |
+| Lint | The deterministic checker requires LF, a final newline, spaces and no trailing whitespace. It scans the root package/workspace/TS configs and supported text extensions under `tooling/`, excluding `dist` and `node_modules`. It rejects tooling symlinks and the `ts-ignore`, `ts-nocheck` and `ts-expect-error` markers in TS files. Its scope is textual. Semantic analysis, workflow syntax and Markdown outside tooling require separate review. |
+| Typecheck and build | Strict TypeScript must produce zero diagnostics. Typecheck emits nothing. A clean build must emit a nonempty `tooling/fixture/dist/slug.js`. `noEmitOnError` prevents new output on a compiler error. |
+| Tests | `pnpm run test` rebuilds, then Node tests the emitted module. Cover both length limits, segmented slugs, case, Unicode, controls and whitespace, paths, invalid types and conversion hooks. A real regression must fail. |
+| Integrity and reproducibility | The two lockfile hashes must match. The Git diff and porcelain status must be empty. No ignored files, dependency directories, compiler caches or build output may be tracked. In two independent clean checkouts of the same SHA with separate empty stores and the pinned Linux toolchain, compare the relative emitted file lists and SHA-256 of every output. |
+| Dependencies and security | Include devDependencies in the registry audit. Separately review the Node distribution, package manager and CI bootstrap when their inputs change. Record findings and service failures under the [security policy](SECURITY.md). |
 
-## Toolchain proposal
+When a gate changes, exercise it in a disposable copy. A prohibited TS suppression must fail lint. A type mismatch must fail typecheck and a clean build must emit nothing. A validator that accepts boxed strings must fail the functional suite. Keep these mutations out of the submitted tree.
 
-Node 22.23.5 LTS, pnpm 11.29.0 (MIT; Node 22+), TypeScript 5.9.3 (Apache-2.0). Node uses the MIT license plus bundled third-party notices. TypeScript 5.9 is the conventional JS compiler chosen for the small fixture rather than adopting a new compiler architecture during bootstrap. Re-evaluate lifecycle and advisories before merge and upgrades. Verify actual compatibility by CI, not by version numbers.
+## Review and integration
 
-Sources: https://nodejs.org/en/blog/release/v22.23.5 ; https://github.com/pnpm/pnpm/releases/tag/v11.29.0 ; https://pnpm.io/installation ; https://github.com/microsoft/TypeScript/releases/tag/v5.9.3 ; https://github.com/actions/checkout/releases/tag/v7.0.1 ; https://github.com/actions/setup-node/releases/tag/v7.1.0 .
+Foundation CI checks every push and pull request, including drafts. For PRs the head job checks out the event's full head SHA. A second job checks GitHub's synthetic merge revision, verifies the two parents against the event base/head and repeats the suite. Compare the actual checkout in the log to the current PR revisions before using a result. Repeat affected checks and independent review when either revision changes.
+
+CHAT 02 reviews the full diff against the assigned base, ownership, evidence, residual risks and rollback. CTO review follows. The founder controls integration and required status-check settings. Automated results establish the listed behaviors only. A numerical quality rating requires separate evidence.
+
+## First web reference
+
+The fixture has no rendered document, browser input, network page load or users. Browser accessibility, compatibility and rendering metrics first apply to an actual web surface. Review WCAG 2.2 AA with automated checks and manual keyboard, focus and assistive-technology testing. Select applicable OWASP ASVS controls against the application's threat model. For public sites measure field p75 LCP ≤ 2.5 s, INP ≤ 200 ms and CLS ≤ 0.1. Record device, network and workload for reproducible lab measurements. Field results require real traffic.
