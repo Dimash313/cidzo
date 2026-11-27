@@ -1,0 +1,5 @@
+# Showcase handoff — CHAT 07
+
+Cycle 1: CIDZO-SHOWCASE-001 / #11. Pinned main 3ca0c3e59365c5e7470eac9e6b9406f2b958bf42. Scope: documentation only. [Concept](../showcases/furniture-studio/concept.md) and [acceptance/reuse](../showcases/furniture-studio/quality-and-reuse.md) define one fictional STATIC furniture studio; no runtime or assets. No approved brand, language, publishing origin or real contact. Main has no runtime, QUALITY.md, SECURITY.md or earlier showcase handoff; #9/#10 and #8 proposed documents are not accepted contracts. No runtime tests or design rendering performed. Check PR and exact HEAD evidence rather than inferring SHA from this file.
+
+CTO: review static collection fields and local non-transmitting inquiry contract with CHAT 03/04; align browser matrix/resource budgets and manifest ownership with CHAT 05. No duplicate requests or new shared code; #11 comment is coordination record. Next: independent CHAT 02 audit and CTO review; runtime needs a separate assignment and accepted dependencies. No founder merge or publication assumed.
