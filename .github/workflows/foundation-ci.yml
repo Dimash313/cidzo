@@ -1,0 +1,103 @@
+name: Foundation CI
+
+on: [push, pull_request]
+
+permissions: {}
+
+concurrency:
+  group: foundation-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Foundation (${{ matrix.revision }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        revision: ${{ fromJSON(github.event_name == 'pull_request' && '["head","merge"]' || '["head"]') }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the event revision without credentials
+        env:
+          EXPECTED_SHA: ${{ matrix.revision == 'head' && github.event.pull_request.head.sha || github.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          REVISION: ${{ matrix.revision }}
+          GIT_CONFIG_NOSYSTEM: '1'
+          GIT_CONFIG_GLOBAL: /dev/null
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          git init --quiet
+          git -c credential.helper= fetch --no-tags --depth=2 "https://github.com/$GITHUB_REPOSITORY.git" "$EXPECTED_SHA"
+          git checkout --quiet --detach FETCH_HEAD
+          actual=$(git rev-parse HEAD)
+          printf 'event=%s event_sha=%s checkout=%s pr_head=%s base=%s\n' "$GITHUB_EVENT_NAME" "$GITHUB_SHA" "$actual" "$PR_HEAD" "$PR_BASE"
+          test "$actual" = "$EXPECTED_SHA"
+          if [[ "$REVISION" == merge ]]; then
+            test "$(git rev-parse HEAD^1)" = "$PR_BASE"
+            test "$(git rev-parse HEAD^2)" = "$PR_HEAD"
+          fi
+
+      - name: Install verified Node.js and pnpm archives
+        working-directory: ${{ runner.temp }}
+        run: |
+          tools=$(mktemp -d)
+          cd "$tools"
+          curl --fail --silent --show-error --location --proto '=https' \
+            https://nodejs.org/dist/v22.23.5/node-v22.23.5-linux-x64.tar.xz -o node.tar.xz
+          echo 'cdeb8670a0c81f51b4dc4ac61919f9b1ad917b304bf8221eb939570663d240f8  node.tar.xz' | sha256sum --check
+          curl --fail --silent --show-error --location --proto '=https' \
+            https://registry.npmjs.org/pnpm/-/pnpm-11.29.0.tgz -o pnpm.tgz
+          echo 'd913f9b37cd5fe6780052e809774edabb7bdcf69a6e6d9b8fd3b38bc052fa8a7d891b6c201a38fb504a07ffce2e5e8c262ef54fb8f57db62f22d353a30bc8a96  pnpm.tgz' | sha512sum --check
+          tar -xJf node.tar.xz
+          tar -xzf pnpm.tgz
+          ln -s "$tools/package/bin/pnpm.mjs" node-v22.23.5-linux-x64/bin/pnpm
+          echo "$tools/node-v22.23.5-linux-x64/bin" >> "$GITHUB_PATH"
+          echo "PNPM_HOME=$tools/pnpm-home" >> "$GITHUB_ENV"
+          echo "XDG_DATA_HOME=$tools/data" >> "$GITHUB_ENV"
+          echo "XDG_CACHE_HOME=$tools/cache" >> "$GITHUB_ENV"
+
+      - name: Verify toolchain and frozen install
+        run: |
+          node --version
+          pnpm --version
+          test "$(node --version)" = v22.23.5
+          test "$(pnpm --version)" = 11.29.0
+          git ls-files --error-unmatch pnpm-lock.yaml
+          test -s pnpm-lock.yaml
+          test ! -e node_modules
+          test ! -e tooling/fixture/dist
+          sha256sum pnpm-lock.yaml > "$RUNNER_TEMP/foundation-lock.sha256"
+          pnpm install --frozen-lockfile --ignore-scripts
+          sha256sum --check "$RUNNER_TEMP/foundation-lock.sha256"
+
+      - name: Lint
+        run: pnpm run lint
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Build
+        run: |
+          pnpm run build
+          test -s tooling/fixture/dist/slug.js
+          sha256sum tooling/fixture/dist/slug.js
+      - name: Test
+        run: pnpm run test
+      - name: Audit workspace dependencies including development tools
+        run: pnpm audit
+
+      - name: Check the working tree and generated files
+        run: |
+          sha256sum --check "$RUNNER_TEMP/foundation-lock.sha256"
+          git diff --exit-code HEAD --
+          git diff --check
+          git status --porcelain=v1 --untracked-files=all > "$RUNNER_TEMP/foundation-status"
+          cat "$RUNNER_TEMP/foundation-status"
+          test ! -s "$RUNNER_TEMP/foundation-status"
+          git ls-files --cached --ignored --exclude-standard > "$RUNNER_TEMP/foundation-generated"
+          git ls-files -- ':(glob)**/node_modules/**' ':(glob)**/dist/**' ':(glob)**/*.tsbuildinfo' >> "$RUNNER_TEMP/foundation-generated"
+          cat "$RUNNER_TEMP/foundation-generated"
+          test ! -s "$RUNNER_TEMP/foundation-generated"

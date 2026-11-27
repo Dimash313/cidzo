@@ -1,0 +1,6 @@
+packages:
+  - tooling/fixture
+
+engineStrict: true
+pmOnFail: error
+verifyDepsBeforeRun: error
